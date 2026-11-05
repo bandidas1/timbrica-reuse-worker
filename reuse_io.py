@@ -3,7 +3,7 @@
 # Contract (same shape as the voice-cover lane, App\Services\VoiceCover\SvcTransfer): one signed GET for the
 # source, one signed PUT for the result; the PUT is idempotent on our side (last valid write wins), so retrying
 # it is always safe. What retries and what does not:
-#   - a dropped connection, a timeout, 408 / 425 / 429 / 5xx  -> retry with backoff until the deadline;
+#   - a dropped connection, a timeout, 400 (truncated upload), 408 / 425 / 429 / 5xx -> retry until the deadline;
 #   - 403 / 404 / 410 / 413 / 422 (bad signature, gone job, too big, not audio) -> final, no retry: repeating
 #     it can only waste the worker's paid seconds.
 import os
@@ -11,8 +11,10 @@ import time
 
 import requests
 
-RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504}
-FINAL_STATUS = {400, 401, 403, 404, 409, 410, 411, 413, 415, 422}
+RETRY_STATUS = {400, 408, 425, 429, 500, 502, 503, 504}
+# 400 is retried: the app answers 400 «result_truncated» when fewer bytes arrived than declared — a broken
+# upload, not a bad request; the PUT is idempotent, so sending the file again is the fix.
+FINAL_STATUS = {401, 403, 404, 409, 410, 411, 413, 415, 422}
 CHUNK = 1 << 20
 
 

@@ -34,6 +34,8 @@ class H(http.server.BaseHTTPRequestHandler):
             STATE['put_fail'] -= 1
             if STATE['put_mode'] == 'drop':
                 self.connection.close(); return
+            if STATE['put_mode'] == '400':
+                self.send_response(400); self.end_headers(); self.wfile.write(b'result_truncated'); return
             self.send_response(503); self.end_headers(); return
         if self.path.startswith('/big'):
             self.send_response(413); self.end_headers(); return
@@ -71,6 +73,9 @@ with tempfile.TemporaryDirectory() as td:
     STATE.update(put_fail=2, put_mode='drop', puts=0, got=b'')
     st = reuse_io.upload(base + '/res', out)
     ok(st == 204 and STATE['got'] == PAYLOAD, 'PUT survives two dropped connections')
+    STATE.update(put_fail=1, put_mode='400', puts=0, got=b'')
+    st = reuse_io.upload(base + '/res', out)
+    ok(st == 204 and STATE['got'] == PAYLOAD and STATE['puts'] == 2, 'a 400 «result_truncated» is retried, not final')
     STATE.update(put_fail=0, puts=0)
     try:
         reuse_io.upload(base + '/big', out); ok(False, 'PUT 413 must be final')
