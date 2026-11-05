@@ -1,0 +1,60 @@
+name: build-and-push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "handler.py"
+      - "reuse_io.py"
+      - "io_selftest.py"
+      - "download_model.py"
+      - "Dockerfile"
+      - "requirements.txt"
+      - ".github/workflows/build.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Delivery of the cleaned file: a red self-test here means a finished, paid enhancement would be thrown
+      # away on the first dropped connection — stop the image before it ships.
+      - name: Transfer self-test
+        run: python3 -m pip install -q requests && python3 io_selftest.py
+
+      # runpod/pytorch devel base (~14 GB unpacked) + mamba kernels — free the runner disk first.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/timbrica-reuse-worker:latest
+            ghcr.io/${{ github.repository_owner }}/timbrica-reuse-worker:${{ github.sha }}
+          provenance: false

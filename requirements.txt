@@ -1,0 +1,12 @@
+# torch 2.4.1 + CUDA 12.4 come with the base image (runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04).
+runpod==1.12.0
+mamba-ssm==2.2.4
+causal-conv1d==1.5.0.post8
+# mamba_ssm/__init__ imports transformers.generation names removed in later releases (measured 05.11 on a pod).
+transformers==4.44.2
+einops==0.8.0
+huggingface_hub==0.26.2
+safetensors==0.4.5
+soundfile==0.12.1
+numpy<2
+requests==2.32.3
